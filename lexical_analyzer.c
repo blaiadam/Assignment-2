@@ -13,7 +13,7 @@
 
 typedef enum {
     ALPHA,   // a, b, .. , z, A, B, .. Z
-    DIGIT, // 0, 1, .. , 9
+    DIGIT,   // 0, 1, .. , 9
     SPECIAL, // '>', '=', , .. , ';', ':'
     INVALID  // Invalid symbol
 } SymbolType;
@@ -41,7 +41,6 @@ typedef struct {
  * Shallow copying is done for the source code field.
  * */
 void initLexerState(LexerState*, char* sourceCode);
-
 /**
  * Returns 1 if the given character is valid.
  * Returns 0 otherwise.
@@ -168,26 +167,59 @@ void DFA_Alpha(LexerState* lexerState)
     // If it exceeds 11 alnums, fill LexerState error and return
     // Otherwise, try to recognize if the symbol is reserved.
     //   If yes, tokenize by one of the reserved symbols
-    //   If not, tokenize as ident.
+    //   If not, tokenize as identifier.
 
     // For adding a token to tokenlist, you could create a token, fill its 
     // .. fields as required and use the following call:
     // addToken(&lexerState->tokenList, token);
-
-    /**
-     * TODO
-     * Implement this function
-     * */
-
-    // TODO: Remove the below message after your implementation
-    // Until implementing, let's just consume the current character and return.
-    char c = lexerState->sourceCode[lexerState->charInd];
-
-    printf("DFA_Alpha: The character \'%c\' was seen and ignored. Please implement the function.\n", c);
-
-    // The character was consumed (by ignoring). Advance to the next character.
-    lexerState->charInd++;
-
+    
+	int i = 0;
+	char currentSymbol = lexerState->sourceCode[lexerState->charInd];
+	Token token;
+	
+	// Assign the new full symbol to the new token.lexeme.
+	while(currentSymbol != ' ' && currentSymbol != '\n' && currentSymbol != '\0' && !isSpecialSymbol(currentSymbol))
+    {
+		// Update lexerError and return if alpha-numeric characters exceed 11.
+        if(i > 10)
+		{
+			lexerState->lexerError = NAME_TOO_LONG;
+			return;
+		}
+		
+		// Update id, the token lexeme, and i.
+		token.lexeme[i++] = currentSymbol;
+		
+		// Advance to the following character
+        currentSymbol = lexerState->sourceCode[++lexerState->charInd];
+    }
+	
+	// Add a null terminator to the end of the lexeme.
+	token.lexeme[i] = '\0';
+	
+	// Check for token "odd".
+	if(strcmp(token.lexeme, "odd") == 0)
+	{
+		token.id = oddsym;
+		addToken(&lexerState->tokenList, token);
+		return;
+	}
+	
+	// Use for loop to check for reserved words.
+	for(i = beginsym; i <= lastReservedToken; i++)
+	{	
+		// If a match is found, initialize the token and add it to the list.
+		if(strcmp(token.lexeme, tokens[i]) == 0)
+		{
+			token.id = i;
+			addToken(&lexerState->tokenList, token);
+			return;
+		}
+	}
+	
+	// Update token and return. This case is run for identifiers.
+	token.id = 2;
+    addToken(&lexerState->tokenList, token);
     return;
 }
 
@@ -214,20 +246,37 @@ void DFA_Digit(LexerState* lexerState)
     // .. fields as required and use the following call:
     // addToken(&lexerState->tokenList, token);
 
-    /**
-     * TODO
-     * Implement this function
-     * */
-
-    // TODO: Remove the below message after your implementation
-    // Until implementing, let's just consume the current character and return.
-    char c = lexerState->sourceCode[lexerState->charInd];
-
-    printf("DFA_Digit: The character \'%c\' was seen and ignored. Please implement the function.\n", c);
-
-    // The character was consumed (by ignoring). Advance to the next character.
-    lexerState->charInd++;
-
+    int i = 0;
+	char currentSymbol = lexerState->sourceCode[lexerState->charInd];
+	Token token;
+	
+	// Assign the new full symbol to the new token.lexeme.
+	while(currentSymbol != ' ' && currentSymbol != '\n' && currentSymbol != '\0' && !isSpecialSymbol(currentSymbol))
+    {
+		// Update lexerError and return if numeric characters exceed 4 or if it isn't a digit.
+        if(i > 4)
+		{
+			lexerState->lexerError = NUM_TOO_LONG;
+			return;
+		} else if(!isdigit(currentSymbol))
+		{
+			lexerState->lexerError = NONLETTER_VAR_INITIAL;
+			return;
+		}
+		
+		// Update the token lexeme and i.
+		token.lexeme[i++] = currentSymbol;
+		
+		// Advance to the following character
+        currentSymbol = lexerState->sourceCode[++lexerState->charInd];
+    }
+	
+	// Add a null terminator to the end of the lexeme.
+	token.lexeme[i] = '\0';
+	
+	token.id = numbersym;
+    addToken(&lexerState->tokenList, token);
+	
     return;
 }
 
@@ -249,19 +298,60 @@ void DFA_Special(LexerState* lexerState)
     // .. fields as required and use the following call:
     // addToken(&lexerState->tokenList, token);
 
-    /**
-     * TODO
-     * Implement this function
-     * */
-
-    // TODO: Remove the below message after your implementation
-    // Until implementing, let's just consume the current character and return.
-    char c = lexerState->sourceCode[lexerState->charInd];
-
-    printf("DFA_Special: The character \'%c\' was seen and ignored. Please implement the function.\n", c);
-
-    // The character was consumed (by ignoring). Advance to the next character.
-    lexerState->charInd++;
+	int i = 0;
+	char currentSymbol = lexerState->sourceCode[lexerState->charInd];
+	Token token;
+	
+	// If and while statement for when it is a comment.
+	if(currentSymbol == '/' && lexerState->sourceCode[lexerState->charInd + 1] == '*')
+	{
+		while(!(currentSymbol == '*' && lexerState->sourceCode[lexerState->charInd + 1] == '/'))
+		{
+			// Advance line number if required
+            if(currentSymbol == '\n')
+                lexerState->lineNum++;
+			
+			// Advance to the following character
+			currentSymbol = lexerState->sourceCode[++lexerState->charInd];
+		}
+		
+		return;
+	}
+	
+    // Assign the new full symbol to the new token.lexeme.
+	while(currentSymbol != ' ' && currentSymbol != '\n' && currentSymbol != '\0' && isSpecialSymbol(currentSymbol))
+    {
+		// Update lexerError and return if symbol characters exceed 2 or if it isn't a symbol.
+		if(i > 1)
+		{
+			lexerState->lexerError = INV_SYM;
+			return;
+		} else if(!isSpecialSymbol(currentSymbol))
+		{
+			lexerState->lexerError = INV_SYM;
+			return;
+		}
+		
+		// Update the token lexeme and i.
+		token.lexeme[i++] = currentSymbol;
+		
+		// Advance to the following character
+        currentSymbol = lexerState->sourceCode[++lexerState->charInd];
+    }
+	
+	// Add a null terminator to the end of the lexeme.
+	token.lexeme[i] = '\0';
+	
+	// Find which symbol and add the token to the list.
+	for(i = firstReservedToken; i <= becomessym; i++)
+	{
+		if(strcmp(token.lexeme, tokens[i]) == 0)
+		{
+			token.id = i;
+			addToken(&lexerState->tokenList, token);
+			return;
+		}
+	}
 
     return;
 }
